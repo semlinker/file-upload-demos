@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>多文件上传示例</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+  </head>
+  <body>
+    <h3>多文件上传示例</h3>
+    <input id="uploadFile" type="file" accept="image/*" multiple />
+    <button id="submit" onclick="uploadFile()">上传文件</button>
+    <script>
+      const uploadFileEle = document.querySelector("#uploadFile");
+
+      const request = axios.create({
+        baseURL: "http://localhost:3000/upload",
+        timeout: 60000,
+      });
+
+      async function uploadFile() {
+        if (!uploadFileEle.files.length) return;
+        const files = Array.from(uploadFileEle.files);
+        upload({
+          url: "/multiple",
+          files,
+        });
+      }
+
+      function upload({ url, files, fieldName = "file" }) {
+        let formData = new FormData();
+        files.forEach((file) => {
+          formData.append(fieldName, file);
+        });
+        request.post(url, formData, {
+          // 监听上传进度
+          onUploadProgress: function (progressEvent) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log(percentCompleted);
+          },
+        });
+      }
+    </script>
+  </body>
+</html>

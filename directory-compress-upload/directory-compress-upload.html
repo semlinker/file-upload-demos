@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>目录压缩上传示例</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jszip/3.5.0/jszip.min.js"></script>
+  </head>
+  <body>
+    <h3>目录压缩上传示例</h3>
+    <input id="uploadFile" type="file" accept="image/*" webkitdirectory />
+    <button id="submit" onclick="uploadFile()">上传文件</button>
+    <script>
+      const uploadFileEle = document.querySelector("#uploadFile");
+
+      const request = axios.create({
+        baseURL: "http://localhost:3000/upload",
+        timeout: 60000,
+      });
+
+      async function uploadFile() {
+        let fileList = uploadFileEle.files;
+        if (!fileList.length) return;
+        let webkitRelativePath = fileList[0].webkitRelativePath;
+        let zipFileName = webkitRelativePath.split("/")[0] + ".zip";
+        let zipFile = await generateZipFile(zipFileName, fileList);
+        upload({
+          url: "/single",
+          file: zipFile,
+          fileName: zipFileName
+        });
+      }
+
+      function generateZipFile(
+        zipName,
+        files,
+        options = { type: "blob", compression: "DEFLATE" }
+      ) {
+        return new Promise((resolve, reject) => {
+          const zip = new JSZip();
+          for (let i = 0; i < files.length; i++) {
+            zip.file(files[i].webkitRelativePath, files[i]);
+          }
+          zip.generateAsync(options).then(function (blob) {
+            zipName = zipName || Date.now() + ".zip";
+            const zipFile = new File([blob], zipName, {
+              type: "application/zip",
+            });
+            resolve(zipFile);
+          });
+        });
+      }
+
+      function upload({ url, file, fileName, fieldName = "file" }) {
+        if (!url || !file) return;
+        let formData = new FormData();
+        formData.append(
+          fieldName,
+          file,
+          fileName
+        );
+        request.post(url, formData, {
+          // 监听上传进度
+          onUploadProgress: function (progressEvent) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log(percentCompleted);
+          },
+        });
+      }
+    </script>
+  </body>
+</html>

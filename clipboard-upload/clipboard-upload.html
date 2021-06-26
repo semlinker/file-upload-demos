@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>剪贴板上传示例</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <style>
+      #uploadArea {
+        width: 300px;
+        height: 300px;
+        border: 1px dashed gray;
+        display: table-cell;
+        vertical-align: middle;
+      }
+      #uploadArea p {
+        text-align: center;
+        color: #999;
+      }
+      #uploadArea img {
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+        margin: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>剪贴板上传示例</h3>
+    <div id="uploadArea">
+      <p>请先复制图片后再执行粘贴操作</p>
+    </div>
+    <script>
+      const IMAGE_MIME_REGEX = /^image\/(jpe?g|gif|png)$/i;
+      const uploadAreaEle = document.querySelector("#uploadArea");
+
+      const request = axios.create({
+        baseURL: "http://localhost:3000/upload",
+        timeout: 60000,
+      });
+
+      uploadAreaEle.addEventListener("paste", async (e) => {
+        e.preventDefault();
+        const files = [];
+        if (navigator.clipboard) {
+          let clipboardItems = await navigator.clipboard.read();
+          for (const clipboardItem of clipboardItems) {
+            for (const type of clipboardItem.types) {
+              if (IMAGE_MIME_REGEX.test(type)) {
+                const blob = await clipboardItem.getType(type);
+                previewImage(blob, uploadAreaEle);
+                files.push(blob);
+              }
+            }
+          }
+        } else {
+          const items = e.clipboardData.items;
+          for (let i = 0; i < items.length; i++) {
+            if (IMAGE_MIME_REGEX.test(items[i].type)) {
+              let file = items[i].getAsFile();
+              previewImage(file, uploadAreaEle);
+              files.push(file);
+            }
+          }
+        }
+        if (files.length > 0) {
+          confirm("剪贴板检测到图片文件，是否执行上传操作？") &&
+            upload({
+              url: "/multiple",
+              files,
+            });
+        }
+      });
+
+      function previewImage(file, container) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          let img = document.createElement("img");
+          img.src = e.target.result;
+          container.append(img);
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function upload({ url, files, fieldName = "file" }) {
+        let formData = new FormData();
+        files.forEach((file) => {
+          let fileName =
+            +new Date() + "." + IMAGE_MIME_REGEX.exec(file.type)[1];
+          formData.append(fieldName, file, fileName);
+        });
+        request.post(url, formData, {
+          // 监听上传进度
+          onUploadProgress: function (progressEvent) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log(percentCompleted);
+          },
+        });
+      }
+    </script>
+  </body>
+</html>
